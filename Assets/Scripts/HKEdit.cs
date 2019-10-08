@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using InControl;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -30,7 +31,7 @@ public class HKEdit {
     private static int curAssetId;
     
     [MenuItem("HKEdit/Load Scene")]
-    private static void Test() {
+    private static void LoadScene() {
         am = new AssetsManager();
         am.LoadClassPackage("cldb.dat");
         am.useTemplateFieldCache = true;
@@ -115,16 +116,26 @@ public class HKEdit {
 
         var table = scene.table;
         var gameObjects = table.GetAssetsOfType(0x01);
-        
-        for (var i = 0; i < gameObjects.Count; i++) {
-            if (i % 100 == 0 && ShouldCancel("Recursing GameObject dependencies", (float) i / gameObjects.Count)) return;
+        var gameObjectBaseFields = new Dictionary<AssetFileInfoEx, AssetTypeValueField>();
+
+        var c = 0;
+        for (c = 0; c < gameObjects.Count; c++) {
+            if (c % 100 == 0 && ShouldCancel("Finding initial GameObjects", (float) c / gameObjects.Count)) return;
             
-            var gameObjectInfo = gameObjects[i];
+            var gameObjectInfo = gameObjects[c];
             var gameObjectBaseField = am.GetATI(scene.file, gameObjectInfo).GetBaseField();
             
             AddPointer(new AssetID(scene.path, (long) gameObjectInfo.index), false);
-            FindNestedPointers(scene, gameObjectBaseField, gameObjectInfo, false);
+            gameObjectBaseFields.Add(gameObjectInfo, gameObjectBaseField);
         }
+        c = 0;
+
+        foreach (var pair in gameObjectBaseFields) {
+            if (c % 100 == 0 && ShouldCancel("Recursing GameObject dependencies", (float) c / gameObjectBaseFields.Count)) return;
+            FindNestedPointers(scene, pair.Value, pair.Key, false);
+            c++;
+        }
+        
         var types = new List<Type_0D>();
         var typeNames = new List<string>();
         
@@ -177,12 +188,10 @@ public class HKEdit {
             };
             sceneFile.dependencies.dependencyCount = 1;
                 
-            sceneFile.preloadTable.items = new AssetPPtr[]
-            {
-                //new AssetPPtr(2, 11500000)
-            };
+            sceneFile.preloadTable.items = new AssetPPtr[] {};
             sceneFile.preloadTable.len = 0;
-            sceneFile.Write(w, 0, sceneReplacers.ToArray(), 0);
+            
+            sceneFile.Write(w, 0, sceneReplacers.Concat(monoReplacers).ToArray(), 0);
             sceneFileData = ms.ToArray();
         }
         byte[] assetFileData;
@@ -218,9 +227,7 @@ public class HKEdit {
             baseFieldData = ms.ToArray();
         }
         AssetsReplacer replacer = new AssetsReplacerFromMemory(0, (ulong)pathId, (int)info.curFileType, 0xFFFF, baseFieldData);
-        
-        // TODO: mono replacer?
-        
+
         if (IsAsset(info)) assetReplacers.Add(replacer);
         //else if (info.curFileType == 0x73) monoReplacers.Add(replacer);
         else sceneReplacers.Add(replacer);
@@ -243,6 +250,8 @@ public class HKEdit {
             var m_AssemblyName = field.Get("m_AssemblyName").GetValue();
             if (m_AssemblyName.AsString().Equals("Assembly-CSharp.dll")) {
                 m_AssemblyName.Set("HKCode.dll");
+            } else if (m_AssemblyName.AsString().Equals("Assembly-CSharp-firstpass.dll")) {
+                m_AssemblyName.Set("HKCode-firstpass.dll");
             }
         } else if (info.curFileType == 0x1c) { // Texture2D
             var path = field.Get("m_StreamData").Get("path");
@@ -289,9 +298,7 @@ public class HKEdit {
 
                     var id = AssetID.FromPPtr(file, fileId, pathId);
                     var asset = am.GetExtAsset(file, (uint) fileId, (ulong) pathId);
-                    
-
-                    bool exists = pointers.ContainsKey(id);
+                    var exists = pointers.ContainsKey(id);
 
                     if (replace) {
                         if (exists) {
@@ -309,14 +316,18 @@ public class HKEdit {
                             child.Get("m_PathID").GetValue().Set(0);
                         }
                     } else {
-                        if (exists || asset.info.curFileType == 0x01) continue;
+                        if (exists) continue;
 
                         AddPointer(id, IsAsset(asset.info));
                         var baseField = asset.instance.GetBaseField();
 
-                        if (asset.info.curFileType == 0x72 && child.GetName().Equals("component")) {
-                            baseField = am.GetMonoBaseFieldCached(file, asset.info, Path.Combine(hkDir, "Managed"));
+                        if (asset.info.curFileType == 0x72) {
+                            var ms = baseField.Get("m_Script");
+                            if (ms != null && ms.childrenCount == 2 && ms.GetFieldType().Equals("PPtr<MonoScript>")) {
+                                baseField = am.GetMonoBaseFieldCached(asset.file, asset.info, Path.Combine(hkDir, "Managed"));
+                            }
                         }
+
                         FindNestedPointers(asset.file, baseField, info, false);
                     }
                 } else FindNestedPointers(file, child, info, replace);
