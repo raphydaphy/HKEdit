@@ -1,0 +1,8 @@
+# Build files
+/bin/
+/obj/
+
+# Solution and project files
+ExportedObj/
+*.csproj
+*.sln
