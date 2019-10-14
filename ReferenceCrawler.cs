@@ -65,6 +65,14 @@ namespace HKExporter {
 
                 this.ReplacePointers(pointerFile, info, pair.Value);
             }
+
+            // Manually add MonoBehaviour typetree if script data is disabled
+            if (this._noScriptData && !this._typeNames.Contains("MonoBehaviour")) {
+                var type0d = C2T5.Cldb2TypeTree(this._am.classFile, "MonoBehaviour");
+                type0d.classId = (int) UnityTypes.MonoBehaviour;
+                this.Types.Add(type0d);
+                this._typeNames.Add("MonoBehaviour");
+            }
         }
 
         private void FindGameObjects() {
@@ -75,7 +83,7 @@ namespace HKExporter {
                 var assetBaseField = this._am.GetATI(this._file.file, info, false).GetBaseField();
                 var name = assetBaseField.Get("m_Name").GetValue().AsString();
 
-                if (!name.Equals("_SceneManager")) continue;
+                //if (!name.Equals("_SceneManager")) continue;
 
                 this.AddPointer(new AssetID(this._file.path, (long) info.index), false);
                 this._baseFields.Add(info, assetBaseField);
@@ -135,7 +143,6 @@ namespace HKExporter {
                             if (asset.info.curFileType == UnityTypes.MonoScript) {
                                 var assemblyName = RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                                 if (!this.Assemblies.ContainsKey(assemblyName)) {
-                                    Debug.Log("Adding mono resolver for " + assemblyName);
                                     this.Assemblies.Add(assemblyName, new MonoScriptResolver(_curMonoResolver, UnityProjectDir, UnityManagedDir, assemblyName));
                                     _curMonoResolver++;
                                 }
@@ -164,11 +171,11 @@ namespace HKExporter {
                 var assemblyName = RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                 var dll = this.Assemblies[assemblyName];
                 var scriptPath = dll.GetPathID(className);
-                Debug.Log("New Preload: " + "1/" + scriptPath + " " + assemblyName + "/" + className);
+                //Debug.Log("New Preload: " + "1/" + scriptPath + " " + assemblyName + "/" + className);
                 this.MonoScripts.Add(new AssetPPtr(dll.Id, (ulong) scriptPath));
             }
             
-            if (this._noScriptData || info.curFileType != UnityTypes.MonoBehaviour) { 
+            if (info.curFileType != UnityTypes.MonoBehaviour) { 
                 if (!this._typeNames.Contains(assetName)) {
                     var type0d = C2T5.Cldb2TypeTree(this._am.classFile, assetName);
                     type0d.classId = (int)info.curFileType;
@@ -176,8 +183,10 @@ namespace HKExporter {
                     this._typeNames.Add(assetName);
                 }
             } else {
-                baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
-                
+                if (!this._noScriptData) {
+                    baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
+                }
+
                 var mScript = baseField.Get("m_Script");
                 var scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
                 var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
@@ -187,29 +196,32 @@ namespace HKExporter {
                 var assembly = this.Assemblies[RemapAssemblyName(mAssemblyName)];
                 mScript.Get("m_FileID").GetValue().Set(assembly.Id);
                 mScript.Get("m_PathID").GetValue().Set(assembly.GetPathID(mClassName));
-                var sid = new ScriptID(mClassName, mNamespace, mAssemblyName);
 
-                if (!this._sidToMid.ContainsKey(sid)) {
-                    var mc = new MonoClass();
-                    mc.Read(mClassName, Path.Combine(this._managedDir, mAssemblyName), file.file.header.format);
+                if (!this._noScriptData) {
+                    var sid = new ScriptID(mClassName, mNamespace, mAssemblyName);
+
+                    if (!this._sidToMid.ContainsKey(sid)) {
+                        var mc = new MonoClass();
+                        mc.Read(mClassName, Path.Combine(this._managedDir, mAssemblyName), file.file.header.format);
                     
-                    var type0d = C2T5.Cldb2TypeTree(this._am.classFile, assetName);
-                    var typeConverter = new TemplateFieldToType0D();
-                    var monoFields = typeConverter.TemplateToTypeField(mc.children, type0d);
+                        var type0d = C2T5.Cldb2TypeTree(this._am.classFile, assetName);
+                        var typeConverter = new TemplateFieldToType0D();
+                        var monoFields = typeConverter.TemplateToTypeField(mc.children, type0d);
                     
-                    type0d.pStringTable = typeConverter.stringTable;
-                    type0d.stringTableLen = (uint) type0d.pStringTable.Length;
-                    type0d.pTypeFieldsEx = type0d.pTypeFieldsEx.Concat(monoFields).ToArray();
-                    type0d.typeFieldsExCount = (uint) type0d.pTypeFieldsEx.Length;
-                    type0d.classId = (int)info.curFileType;
-                    type0d.scriptIndex = this._curMonoId;
+                        type0d.pStringTable = typeConverter.stringTable;
+                        type0d.stringTableLen = (uint) type0d.pStringTable.Length;
+                        type0d.pTypeFieldsEx = type0d.pTypeFieldsEx.Concat(monoFields).ToArray();
+                        type0d.typeFieldsExCount = (uint) type0d.pTypeFieldsEx.Length;
+                        type0d.classId = (int)info.curFileType;
+                        type0d.scriptIndex = this._curMonoId;
                     
-                    this.Types.Add(type0d);
-                    this._sidToMid.Add(sid, this._curMonoId);
-                    this._curMonoId++;
+                        this.Types.Add(type0d);
+                        this._sidToMid.Add(sid, this._curMonoId);
+                        this._curMonoId++;
+                    }
+
+                    monoId = this._sidToMid[sid];
                 }
-
-                monoId = this._sidToMid[sid];
             }
             
             this.FindNestedPointers(file, baseField, info, true);

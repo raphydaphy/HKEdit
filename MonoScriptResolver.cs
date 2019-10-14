@@ -23,6 +23,8 @@ namespace HKExporter {
             var path = unityProjectPath + "/Library/metadata/" + guid.Substring(0, 2) + "/" + guid;
             this._assetFile = this._am.LoadAssetsFile(path, true);
             
+            Debug.Log("Created MonoScript resolver for " + dllName + " with guid " + guid + " with id " + id);
+            
             var guidCharArray = guid.ToCharArray();
             Array.Reverse( guidCharArray );
             var guidReverse = new string(guidCharArray);
