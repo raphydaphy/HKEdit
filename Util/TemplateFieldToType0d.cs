@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using AssetsTools.NET;
 
-namespace Util {
+namespace HKExporter.Util {
     public class TemplateFieldToType0D
     {
         public string stringTable;

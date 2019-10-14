@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using AssetsTools.NET;
 
-namespace Util {
+namespace HKExporter.Util {
     public class UnityHelper {
         public static string CreateMD5(string input) {
             using (MD5 md5 = MD5.Create()) {

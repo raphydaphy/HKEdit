@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using AssetsTools.NET.Extra;
 
-namespace Util
+namespace HKExporter.Util
 {
     [Serializable]
     public class AssetID
@@ -35,7 +35,7 @@ namespace Util
         }
         public override string ToString()
         {
-            return fileName + " " + pathId.ToString();
+            return this.fileName + " " + this.pathId.ToString();
         }
         
         public static AssetID FromPPtr(AssetsFileInstance inst, int fileId, long pathId)
@@ -67,9 +67,9 @@ namespace Util
             if (obj.GetType() != typeof(ScriptID))
                 return false;
             ScriptID scriptID = obj as ScriptID;
-            if (scriptName == scriptID.scriptName &&
-                scriptNamespace == scriptID.scriptNamespace &&
-                scriptFileName == scriptID.scriptFileName)
+            if (this.scriptName.Equals(scriptID.scriptName) &&
+                this.scriptNamespace.Equals(scriptID.scriptNamespace) &&
+                this.scriptFileName.Equals(scriptID.scriptFileName))
                 return true;
             return false;
         }

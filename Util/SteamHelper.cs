@@ -3,7 +3,7 @@ using Microsoft.Win32;
 using System.IO;
 using System.Text.RegularExpressions;
 
-namespace Util {
+namespace HKExporter.Util {
     public static class SteamHelper {
         private static readonly int HOLLOWKNIGHT_APP_ID = 367520;
         private static readonly string HOLLOWKNIGHT_GAME_NAME = "Hollow Knight";
