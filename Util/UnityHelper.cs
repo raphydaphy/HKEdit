@@ -36,8 +36,8 @@ namespace HKExporter.Util {
         public static AssetsFileDependency CreateDependency(string assetPath, string bufferedPath) {
             return new AssetsFileDependency() {
                 guid = new AssetsFileDependency.GUID128() {
-                    mostSignificant = 0,
-                    leastSignificant = 0
+                    leastSignificant = 0,
+                    mostSignificant = 0
                 },
                 type = 0,
                 assetPath = assetPath,
@@ -49,10 +49,9 @@ namespace HKExporter.Util {
         {
             return new AssetsFileDependency()
             {
-                guid = new AssetsFileDependency.GUID128()
-                {
-                    mostSignificant = mostSignificant,
-                    leastSignificant = leastSignificant
+                guid = new AssetsFileDependency.GUID128() {
+                    leastSignificant = leastSignificant,
+                    mostSignificant = mostSignificant
                 },
                 type = 3,
                 assetPath = "",

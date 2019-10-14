@@ -42,14 +42,11 @@ namespace HKExporter {
             {
                 w.bigEndian = false;
                 var deps = new List<AssetsFileDependency>();
-
                 deps.Add(UnityHelper.CreateDependency(this._assetsFilePath, ""));
                 foreach (var dll in this._crawler.Assemblies) {
-                    deps.Add(UnityHelper.CreateScriptDependency(dll.Value.GuidMs, dll.Value.GuidLs));
+                    deps.Add(UnityHelper.CreateScriptDependency(dll.Value.GuidMostSignificant, dll.Value.GuidLeastSignificant));
                 }
-                
                 deps.Add(UnityHelper.CreateDependency("library/unity default resources", ""));
-
                 sceneFile.dependencies.pDependencies = deps.ToArray();
                 sceneFile.dependencies.dependencyCount = (uint)deps.Count;
 

@@ -72,7 +72,7 @@ namespace HKExporter {
                 var type = info.curFileType;
                 if (type != UnityTypes.GameObject) continue;
                 
-                var assetBaseField = this._am.GetATI(this._file.file, info).GetBaseField();
+                var assetBaseField = this._am.GetATI(this._file.file, info, false).GetBaseField();
                 var name = assetBaseField.Get("m_Name").GetValue().AsString();
 
                 if (!name.Equals("BlurPlane")) continue;
@@ -152,7 +152,7 @@ namespace HKExporter {
                 }
             }
         }private void ReplacePointers(AssetsFileInstance file, AssetFileInfoEx info, AssetID aid) {
-            var baseField = this._am.GetATI(file.file, info).GetBaseField();
+            var baseField = this._am.GetATI(file.file, info, false).GetBaseField();
             
             var assetClass = AssetHelper.FindAssetClassByID(this._am.classFile, info.curFileType);
             var assetName = assetClass.name.GetString(this._am.classFile);

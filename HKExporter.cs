@@ -40,7 +40,7 @@ namespace HKExporter {
             var globalgamemanagers = am.LoadAssetsFile(Path.Combine(hkDir, "globalgamemanagers"), false);
             var buildSettings = globalgamemanagers.table.getAssetInfo(11);
 
-            var baseField = am.GetATI(globalgamemanagers.file, buildSettings).GetBaseField();
+            var baseField = am.GetATI(globalgamemanagers.file, buildSettings, false).GetBaseField();
 
             var scenesArray = baseField.Get("scenes").Get("Array");
 

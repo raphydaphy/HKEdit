@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using AssetsTools.NET.Extra;
 
 namespace HKExporter {
@@ -10,21 +11,25 @@ namespace HKExporter {
         private Dictionary<string, ulong> _lookup;
 
         public readonly uint Id;
-        public readonly long GuidLs;
-        public readonly long GuidMs;
+        public readonly long GuidMostSignificant;
+        public readonly long GuidLeastSignificant;
 
         public MonoScriptResolver(uint id, string unityProjectPath, string dllDir, string dllName) {
             this._am = new AssetsManager();
             this._am.LoadClassPackage("../../Lib/cldb.dat");
             this._lookup = new Dictionary<string, ulong>();
             
-            var dllGuid = File.ReadAllLines(unityProjectPath + "/" + dllDir + "/" + dllName + ".meta")[1].Substring(6);
-            var path = unityProjectPath + "/Library/metadata/" + dllGuid.Substring(0, 2) + "/" + dllGuid;
+            var guid = File.ReadAllLines(unityProjectPath + "/" + dllDir + "/" + dllName + ".meta")[1].Substring(6);
+            var path = unityProjectPath + "/Library/metadata/" + guid.Substring(0, 2) + "/" + guid;
             this._assetFile = this._am.LoadAssetsFile(path, true);
 
+            this.GuidMostSignificant = Convert.ToInt64(guid.Substring(0, 16), 16);
+            this.GuidLeastSignificant = Convert.ToInt64(guid.Substring(16, 16), 16);
+
+            // Debug: reconstruct the GUId from the two longs
+            //var rconGui = $"{this.GuidMostSignificant.ToString("x8")}{this.GuidLeastSignificant.ToString("x8")}";
+            
             this.Id = id;
-            this.GuidLs = Convert.ToInt64(dllGuid.Substring(0, 16), 16);
-            this.GuidMs = Convert.ToInt64(dllGuid.Substring(16, 16), 16);
         }
 
         public void Init() {
@@ -45,7 +50,7 @@ namespace HKExporter {
         public long GetSignedPathID(string className) {
             var pathID = this.GetPathID(className);
             if (pathID > long.MaxValue) return (long) (pathID - long.MaxValue);
-            else return (long) pathID;
+            return (long) pathID;
         }
     }
 }
