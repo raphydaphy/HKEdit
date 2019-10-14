@@ -67,7 +67,7 @@ namespace HKExporter {
             }
 
             // Manually add MonoBehaviour typetree if script data is disabled
-            if (this._noScriptData && !this._typeNames.Contains("MonoBehaviour")) {
+            if (!this._typeNames.Contains("MonoBehaviour")) { // this._noScriptData && 
                 var type0d = C2T5.Cldb2TypeTree(this._am.classFile, "MonoBehaviour");
                 type0d.classId = (int) UnityTypes.MonoBehaviour;
                 this.Types.Add(type0d);
@@ -83,7 +83,7 @@ namespace HKExporter {
                 var assetBaseField = this._am.GetATI(this._file.file, info, false).GetBaseField();
                 var name = assetBaseField.Get("m_Name").GetValue().AsString();
 
-                //if (!name.Equals("_SceneManager")) continue;
+                //if (!name.StartsWith("Town-TileMap") && !name.StartsWith("Chunk") && !name.Equals("Terrain") && !name.Equals("Scenemap")) continue; 
 
                 this.AddPointer(new AssetID(this._file.path, (long) info.index), false);
                 this._baseFields.Add(info, assetBaseField);
@@ -149,7 +149,11 @@ namespace HKExporter {
                             } else if (!this._noScriptData && asset.info.curFileType == UnityTypes.MonoBehaviour) {
                                 var mScript = baseField.Get("m_Script");
                                 if (mScript != null && mScript.childrenCount == 2 && mScript.GetFieldType().Equals("PPtr<MonoScript>")) {
-                                    baseField = this._am.GetMonoBaseFieldCached(asset.file, asset.info, this._managedDir);
+                                    var scriptBaseField = this._am.GetExtAsset(asset.file, mScript).instance.GetBaseField();
+                                    var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
+                                    if (mClassName.StartsWith("tk2d")) {
+                                        Debug.Log("Ignoring class " + mClassName);
+                                    } else baseField = this._am.GetMonoBaseFieldCached(asset.file, asset.info, this._managedDir);
                                 }
                             }
 
@@ -183,13 +187,16 @@ namespace HKExporter {
                     this._typeNames.Add(assetName);
                 }
             } else {
-                if (!this._noScriptData) {
-                    baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
-                }
-
                 var mScript = baseField.Get("m_Script");
                 var scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
                 var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
+                
+                if (!this._noScriptData && !mClassName.StartsWith("tk2d")) {
+                    baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
+                    mScript = baseField.Get("m_Script");
+                    scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
+                }
+                
                 var mNamespace = scriptBaseField.Get("m_Namespace").GetValue().AsString();
                 var mAssemblyName = scriptBaseField.Get("m_AssemblyName").GetValue().AsString();
 
@@ -197,7 +204,7 @@ namespace HKExporter {
                 mScript.Get("m_FileID").GetValue().Set(assembly.Id);
                 mScript.Get("m_PathID").GetValue().Set(assembly.GetPathID(mClassName));
 
-                if (!this._noScriptData) {
+                if (!this._noScriptData && !mClassName.StartsWith("tk2d")) {
                     var sid = new ScriptID(mClassName, mNamespace, mAssemblyName);
 
                     if (!this._sidToMid.ContainsKey(sid)) {
