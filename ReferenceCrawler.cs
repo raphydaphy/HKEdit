@@ -75,6 +75,8 @@ namespace HKExporter {
                 var assetBaseField = this._am.GetATI(this._file.file, info, false).GetBaseField();
                 var name = assetBaseField.Get("m_Name").GetValue().AsString();
 
+                if (!name.Equals("_SceneManager")) continue;
+
                 this.AddPointer(new AssetID(this._file.path, (long) info.index), false);
                 this._baseFields.Add(info, assetBaseField);
             }
@@ -161,7 +163,7 @@ namespace HKExporter {
                 var className = baseField.Get("m_ClassName").GetValue().AsString();
                 var assemblyName = RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                 var dll = this.Assemblies[assemblyName];
-                var scriptPath = dll.GetSignedPathID(className);
+                var scriptPath = dll.GetPathID(className);
                 Debug.Log("New Preload: " + "1/" + scriptPath + " " + assemblyName + "/" + className);
                 this.MonoScripts.Add(new AssetPPtr(dll.Id, (ulong) scriptPath));
             }
@@ -184,7 +186,7 @@ namespace HKExporter {
 
                 var assembly = this.Assemblies[RemapAssemblyName(mAssemblyName)];
                 mScript.Get("m_FileID").GetValue().Set(assembly.Id);
-                mScript.Get("m_PathID").GetValue().Set(assembly.GetSignedPathID(mClassName));
+                mScript.Get("m_PathID").GetValue().Set(assembly.GetPathID(mClassName));
                 var sid = new ScriptID(mClassName, mNamespace, mAssemblyName);
 
                 if (!this._sidToMid.ContainsKey(sid)) {
