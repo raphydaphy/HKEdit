@@ -75,8 +75,6 @@ namespace HKExporter {
                 var assetBaseField = this._am.GetATI(this._file.file, info, false).GetBaseField();
                 var name = assetBaseField.Get("m_Name").GetValue().AsString();
 
-                if (!name.Equals("BlurPlane")) continue;
-
                 this.AddPointer(new AssetID(this._file.path, (long) info.index), false);
                 this._baseFields.Add(info, assetBaseField);
             }

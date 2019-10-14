@@ -22,9 +22,13 @@ namespace HKExporter {
             var guid = File.ReadAllLines(unityProjectPath + "/" + dllDir + "/" + dllName + ".meta")[1].Substring(6);
             var path = unityProjectPath + "/Library/metadata/" + guid.Substring(0, 2) + "/" + guid;
             this._assetFile = this._am.LoadAssetsFile(path, true);
+            
+            var guidCharArray = guid.ToCharArray();
+            Array.Reverse( guidCharArray );
+            guid = new string(guidCharArray);
 
-            this.GuidMostSignificant = Convert.ToInt64(guid.Substring(0, 16), 16);
-            this.GuidLeastSignificant = Convert.ToInt64(guid.Substring(16, 16), 16);
+            this.GuidLeastSignificant = Convert.ToInt64(guid.Substring(0, 16), 16);
+            this.GuidMostSignificant = Convert.ToInt64(guid.Substring(16, 16), 16);
 
             // Debug: reconstruct the GUId from the two longs
             //var rconGui = $"{this.GuidMostSignificant.ToString("x8")}{this.GuidLeastSignificant.ToString("x8")}";
