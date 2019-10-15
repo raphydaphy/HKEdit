@@ -1,6 +1,15 @@
 # Hollow Knight Exporter
 Converts hollow knight level files into usable Unity scenes
 
+## To-Do
+
+  - [x] Full Scene with NoScriptData error free
+  - [x] MonoBehavour with primitive properties (bool, int, etc) error free
+  - [ ] MonoBehaviour with Unity types (GameObjects, Components, etc) error free
+  - [ ] tk2d components error free
+  - [ ] FSM components error free
+  - [ ] Playable scenes
+
 ## Errors
 
   - **Recursive Serialization is not supported. You can't dereference a PPtr while loading.**<br />

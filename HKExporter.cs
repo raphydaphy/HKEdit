@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using AssetsTools.NET.Extra;
@@ -92,8 +93,18 @@ namespace HKExporter {
             foreach (var t in am.files) {
                 t.table.GenerateQuickLookupTree();
             }
-            
-            var crawler = new ReferenceCrawler(am, scene, managedDir, noScriptData);
+
+            var blacklist = new List<string> {
+                ScriptList.GetScriptName("tk2dSprite", "HKCode.dll"),
+                ScriptList.GetScriptName("tk2dSpriteAnimator", "HKCode.dll"),
+                ScriptList.GetScriptName("PlayMakerFSM", "PlayMaker.dll")
+            };
+
+            var whitelist = new List<string> {
+                ScriptList.GetScriptName("HeroController", "HKCode.dll")
+            };
+
+            var crawler = new ReferenceCrawler(am, scene, managedDir, new ScriptList(noScriptData, whitelist, blacklist));
             crawler.Crawl();
 
             var serializer = new AssetsSerializer(crawler, levelName, sceneFilePath, metaFilePath, assetsFilePath, unityVersion);
