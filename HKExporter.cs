@@ -95,13 +95,21 @@ namespace HKExporter {
             }
 
             var blacklist = new List<string> {
-                ScriptList.GetScriptName("tk2dSprite", "HKCode.dll"),
-                ScriptList.GetScriptName("tk2dSpriteAnimator", "HKCode.dll"),
-                ScriptList.GetScriptName("PlayMakerFSM", "PlayMaker.dll")
+                // Crash
+                ScriptList.GetScriptName("tk2dSpriteCollectionData", "HKCode.dll"),
+                ScriptList.GetScriptName("PlayMakerFSM", "PlayMaker.dll"),
+                ScriptList.GetScriptName("HeroController", "HKCode.dll"),
+                ScriptList.GetScriptName("HeroAudioController", "HKCode.dll")        
             };
 
             var whitelist = new List<string> {
-                ScriptList.GetScriptName("HeroController", "HKCode.dll")
+                // Works
+                //ScriptList.GetScriptName("tk2dSpriteAnimator", "HKCode.dll"),
+                //ScriptList.GetScriptName("tk2dSpriteAnimation", "HKCode.dll"),
+                //ScriptList.GetScriptName("tk2dSprite", "HKCode.dll"),
+                //ScriptList.GetScriptName("PlayAudioAndRecycle", "HKCode.dll"),
+                ScriptList.GetScriptName("SplatterOrange", "HKCode.dll"),
+                //ScriptList.GetScriptName("DashEffect", "HKCode.dll"),
             };
 
             var crawler = new ReferenceCrawler(am, scene, managedDir, new ScriptList(noScriptData, whitelist, blacklist));

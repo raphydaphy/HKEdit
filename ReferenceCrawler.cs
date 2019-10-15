@@ -69,12 +69,13 @@ namespace HKExporter {
             }
 
             // Manually add MonoBehaviour typetree if script data is disabled
-            if (this._scriptList.GetIgnoredCount() > 0 && !this._typeNames.Contains("MonoBehaviour")) {
+            /*if (this._scriptList.AreScriptsIgnored() && !this._typeNames.Contains("MonoBehaviour")) {
+                Debug.Log("Adding default MonoBehaviour typetree");
                 var type0d = C2T5.Cldb2TypeTree(this._am.classFile, "MonoBehaviour");
                 type0d.classId = (int) UnityTypes.MonoBehaviour;
                 this.Types.Add(type0d);
                 this._typeNames.Add("MonoBehaviour");
-            }
+            }*/
         }
 
         private void FindGameObjects() {
@@ -154,9 +155,7 @@ namespace HKExporter {
                                     var scriptBaseField = this._am.GetExtAsset(asset.file, mScript).instance.GetBaseField();
                                     var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
                                     var mAssemblyName = scriptBaseField.Get("m_AssemblyName").GetValue().AsString();
-                                    if (!this._scriptList.IsIgnored(mClassName, mAssemblyName)) {
-                                        baseField = this._am.GetMonoBaseFieldCached(asset.file, asset.info, this._managedDir);
-                                    }
+                                    baseField = this._am.GetMonoBaseFieldCached(asset.file, asset.info, this._managedDir);
                                 }
                             }
 
@@ -194,12 +193,15 @@ namespace HKExporter {
                 var scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
                 var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
                 var mAssemblyName = scriptBaseField.Get("m_AssemblyName").GetValue().AsString();
-                var ignoreData = this._scriptList.IsIgnored(mClassName, mAssemblyName);
+                var ignoreData = this._scriptList.IsIgnored(mClassName, RemapAssemblyName(mAssemblyName));
                 
                 if (!ignoreData) {
+                    if (this._scriptList.IsWhitelistMode()) Debug.Log("Adding whitelisted script " + mClassName);
                     baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
                     mScript = baseField.Get("m_Script");
                     scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
+                } else if (!this._scriptList.IsWhitelistMode()) {
+                    Debug.Log("Ignoring blacklisted script " + mClassName);
                 }
                 
                 var mNamespace = scriptBaseField.Get("m_Namespace").GetValue().AsString();
@@ -208,14 +210,17 @@ namespace HKExporter {
                 mScript.Get("m_FileID").GetValue().Set(assembly.Id);
                 mScript.Get("m_PathID").GetValue().Set(assembly.GetPathID(mClassName));
 
-                if (!ignoreData) {
-                    var sid = new ScriptID(mClassName, mNamespace, mAssemblyName);
+                var sid = new ScriptID(mClassName, mNamespace, mAssemblyName);
 
-                    if (!this._sidToMid.ContainsKey(sid)) {
+                if (!this._sidToMid.ContainsKey(sid)) {
+                    var type0d = C2T5.Cldb2TypeTree(this._am.classFile, assetName);
+                    type0d.classId = (int)info.curFileType;
+                    type0d.scriptIndex = this._curMonoId;
+                    
+                    if (!ignoreData) {
                         var mc = new MonoClass();
                         mc.Read(mClassName, Path.Combine(this._managedDir, mAssemblyName), file.file.header.format);
-                    
-                        var type0d = C2T5.Cldb2TypeTree(this._am.classFile, assetName);
+                        
                         var typeConverter = new TemplateFieldToType0D();
                         var monoFields = typeConverter.TemplateToTypeField(mc.children, type0d);
                     
@@ -223,16 +228,14 @@ namespace HKExporter {
                         type0d.stringTableLen = (uint) type0d.pStringTable.Length;
                         type0d.pTypeFieldsEx = type0d.pTypeFieldsEx.Concat(monoFields).ToArray();
                         type0d.typeFieldsExCount = (uint) type0d.pTypeFieldsEx.Length;
-                        type0d.classId = (int)info.curFileType;
-                        type0d.scriptIndex = this._curMonoId;
-                    
-                        this.Types.Add(type0d);
-                        this._sidToMid.Add(sid, this._curMonoId);
-                        this._curMonoId++;
                     }
-
-                    monoId = this._sidToMid[sid];
+                    
+                    this.Types.Add(type0d);
+                    this._sidToMid.Add(sid, this._curMonoId);
+                    this._curMonoId++;
                 }
+
+                monoId = this._sidToMid[sid];
             }
             
             this.FindNestedPointers(file, baseField, info, true);

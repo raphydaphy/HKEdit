@@ -12,8 +12,8 @@ namespace HKExporter {
             this._blacklist = blacklist;
         }
 
-        public int GetIgnoredCount() {
-            return this._noScriptData ? this._whitelist.Count : this._blacklist.Count;
+        public bool IsWhitelistMode() {
+            return this._noScriptData;
         }
 
         public bool IsIgnored(string className, string assemblyname) {
