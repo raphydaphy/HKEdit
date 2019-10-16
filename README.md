@@ -5,7 +5,7 @@ Converts hollow knight level files into usable Unity scenes
 
   - [x] Full Scene with NoScriptData error free
   - [x] MonoBehavour with primitive properties (bool, int, etc) error free
-  - [ ] MonoBehaviour with Unity types (GameObjects, Components, etc) error free
+  - [x] MonoBehaviour with Unity types (GameObjects, Components, etc) error free
   - [ ] tk2d components error free
   - [ ] FSM components error free
   - [ ] Playable scenes

@@ -22,6 +22,16 @@ public static class UnityTypes {
     public const uint RectTransform = 0xe0;
     public const uint MonoBehaviour = 0x72;
 
+    public const uint AudioManager = 0x0B;
+    public const uint GraphicsSettings = 0x1E;
+    public const uint InputManager = 0x0D;
+    public const uint NetworkManager = 0x95;
+    public const uint Physics2DSettings = 0x13;
+    public const uint QualitySettings = 0x2F;
+    public const uint TagManager = 0x4E;
+    public const uint TimeManager = 0x05;
+    public const uint UnityConnectSettings = 0x136;
+
     public const uint MonoScript = 0x73;
     public const uint Texture2D = 0x1c;
     public const uint AudioClip = 0x53;

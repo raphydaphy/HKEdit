@@ -20,7 +20,7 @@ namespace HKExporter {
             return this._noScriptData ? !this.IsWhitelisted(className, assemblyname) : !this.IsBlacklisted(className, assemblyname);
         }
 
-        private bool IsBlacklisted(string className, string assemblyName) {
+        public bool IsBlacklisted(string className, string assemblyName) {
             return this._blacklist != null && this._blacklist.Contains(GetScriptName(className, assemblyName));
         }
 

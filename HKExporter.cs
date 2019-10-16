@@ -7,41 +7,48 @@ using HKExporter.Util;
 
 namespace HKExporter {
     internal class HKExporter {
-        private const string SCENE_LEVEL_NAME = "editorscene";
-        private const string ASSET_LEVEL_NAME = "editorasset";
-        private const string DEFAULT_SCENES_DIR = "Assets/Scenes";
-        private const string DEFAULT_DATA_DIR = "Data";
-
-        private static string scenesDir = DEFAULT_SCENES_DIR;
-        private static string dataDir = DEFAULT_DATA_DIR;
-        private static AssetsManager am;
-        private static string hkDir;
-        private static string managedDir;
-        private static string unityVersion;
+        private static string _unityProjectDir = "D:/Documents/HKModding/HollowKnight";
+        private const string _unityManagedDir = "Assets/Managed";
+        private static string _scenesDir = "Assets/Scenes";
+        private static string _dataDir = "Data";
+        private static AssetsManager _am;
+        private static string _gameDir;
+        private static string _managedDir;
+        private static string _unityVersion;
         
-        private static bool noScriptData;
+        private static bool _noScriptData;
+        private static bool _setupUnityProject;
 
         public static void Main(string[] args) {
-            Debug.Log("Preparing workspace..");
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-            if (args.Contains("-noScriptData")) {
-                Debug.Log("noScriptData is enabled!");
-                noScriptData = true;
-            }
+            _gameDir = SteamHelper.GetHollowKnightDataPath();
 
-            am = new AssetsManager();
-            am.LoadClassPackage("../../Lib/cldb.dat");
-            am.useTemplateFieldCache = true;
-            am.updateAfterLoad = false;
+            ArgsHelper argsHelper = new ArgsHelper(args);
+            
+            _noScriptData = argsHelper.IsPresent("noScriptData");
+            _setupUnityProject = argsHelper.IsPresent("setupUnityProject");
+            _unityProjectDir = argsHelper.GetValue("unityProjectDir", _unityProjectDir);
+            _gameDir = argsHelper.GetValue("gameDir", _gameDir);
+            
+            Debug.Log("Script data is " + ArgsHelper.GetBoolString(!_noScriptData));
+            Debug.Log("Unity project setup is " + ArgsHelper.GetBoolString(_setupUnityProject));
+            Debug.Log("Using unity project dir: " + _unityProjectDir);
+            Debug.Log("Using game dir: " + _gameDir);
 
-            hkDir = SteamHelper.GetHollowKnightDataPath();
-            managedDir = Path.Combine(hkDir, "Managed");
+            Debug.Log("Preparing workspace..");
+            
+            _managedDir = Path.Combine(_gameDir, "Managed");
+            
+            _am = new AssetsManager();
+            _am.LoadClassPackage("../../Lib/cldb.dat");
+            _am.useTemplateFieldCache = true;
+            _am.updateAfterLoad = false;
 
-            var globalgamemanagers = am.LoadAssetsFile(Path.Combine(hkDir, "globalgamemanagers"), false);
-            var buildSettings = globalgamemanagers.table.getAssetInfo(11);
+            var globalGameManagers = _am.LoadAssetsFile(Path.Combine(_gameDir, "globalgamemanagers"), false);
+            var buildSettings = globalGameManagers.table.getAssetInfo(11);
 
-            var baseField = am.GetATI(globalgamemanagers.file, buildSettings, false).GetBaseField();
+            var baseField = _am.GetATI(globalGameManagers.file, buildSettings, false).GetBaseField();
 
             var scenesArray = baseField.Get("scenes").Get("Array");
 
@@ -54,43 +61,52 @@ namespace HKExporter {
             var levelName = scenesArray[level].GetValue().AsString().Substring(14);
             levelName = levelName.Substring(0, levelName.Length - 6);
 
-            unityVersion = baseField.Get("m_Version").GetValue().AsString();
+            _unityVersion = baseField.Get("m_Version").GetValue().AsString();
 
-            if (!Directory.Exists(scenesDir)) {
-                Directory.CreateDirectory(scenesDir);
+            if (!Directory.Exists(_scenesDir)) {
+                Directory.CreateDirectory(_scenesDir);
             }
 
-            if (!Directory.Exists(dataDir)) {
-                Directory.CreateDirectory(dataDir);
+            if (!Directory.Exists(_dataDir)) {
+                Directory.CreateDirectory(_dataDir);
             }
-
-            var sceneFilePath = "level" + level + ".unity";
-
-            if (File.Exists(Path.Combine(DEFAULT_SCENES_DIR, sceneFilePath))) {
+            
+            var sceneFilePath = Path.Combine(_scenesDir, "level" + level + ".unity");
+            var metaFilePath = Path.Combine(_scenesDir, "level" + level + ".unity.meta");
+            var assetsFilePath = Path.Combine(_dataDir, "level" + level + ".assets");
+            
+            if (File.Exists(sceneFilePath)) {
                 Console.Write("You have already exported this scene. Do you want to overwrite it (Y/n) ? ");
                 var input = Console.ReadLine();
                 if (input != null && input.ToLower().Equals("y")) {
-                    File.Delete(Path.Combine(DEFAULT_SCENES_DIR, sceneFilePath));
+                    File.Delete(sceneFilePath);
                 } else {
                     return;
                 }
             }
-            
-            sceneFilePath = Path.Combine(scenesDir, sceneFilePath);
-            var metaFilePath = Path.Combine(scenesDir, "level" + level + ".unity.meta");
-            var assetsFilePath = Path.Combine(dataDir, "level" + level + ".assets");
 
             if (File.Exists(metaFilePath)) File.Delete(metaFilePath);
             if (File.Exists(assetsFilePath)) File.Delete(assetsFilePath);
 
-            var scenePath = Path.Combine(SteamHelper.GetHollowKnightDataPath(), "level" + level );
-            var scene = am.LoadAssetsFile(scenePath, true);
+            if (_setupUnityProject) {
+                var projectBuilder = new UnityProjectBuilder(_unityProjectDir, _unityManagedDir, _unityVersion);
+                if (projectBuilder.Setup(_am, globalGameManagers, _managedDir)) {
+                    Debug.Log("Unity project generated at '" + _unityProjectDir + "', please open it in Unity to generate metadata files before continuing...");
+                    Console.Write("Press Enter once you have opened the Unity project...");
+                    Console.ReadLine();
+                } else {
+                    Debug.Log("Unity project setup is enabled but the directory already exists... skipping");
+                }
+            }
+
+            var scenePath = Path.Combine(_gameDir, "level" + level );
+            var scene = _am.LoadAssetsFile(scenePath, true);
 
             Debug.Log("Generating QLTs...");
 
-            am.UpdateDependencies();
+            _am.UpdateDependencies();
 
-            foreach (var t in am.files) {
+            foreach (var t in _am.files) {
                 t.table.GenerateQuickLookupTree();
             }
 
@@ -108,18 +124,23 @@ namespace HKExporter {
                 //ScriptList.GetScriptName("tk2dSpriteAnimation", "HKCode.dll"),
                 //ScriptList.GetScriptName("tk2dSprite", "HKCode.dll"),
                 //ScriptList.GetScriptName("PlayAudioAndRecycle", "HKCode.dll"),
-                ScriptList.GetScriptName("SplatterOrange", "HKCode.dll"),
-                //ScriptList.GetScriptName("DashEffect", "HKCode.dll"),
+                ScriptList.GetScriptName("SpatterOrange", "HKCode.dll")
             };
 
-            var crawler = new ReferenceCrawler(am, scene, managedDir, new ScriptList(noScriptData, whitelist, blacklist));
+            var crawler = new ReferenceCrawler(_am, scene, _unityProjectDir, _unityManagedDir, _managedDir, new ScriptList(_noScriptData, whitelist, blacklist));
             crawler.Crawl();
 
-            var serializer = new AssetsSerializer(crawler, levelName, sceneFilePath, metaFilePath, assetsFilePath, unityVersion);
+            var serializer = new AssetsSerializer(crawler, levelName, sceneFilePath, metaFilePath, assetsFilePath, _unityVersion);
             serializer.Serialize();
             
             stopwatch.Stop();
             Debug.Log("Exported scene #" + level + " ( " + levelName + " ) in " + stopwatch.ElapsedMilliseconds + " ms");
+        }
+
+        public static string RemapAssemblyName(string assemblyName) {
+            if (assemblyName.Equals("Assembly-CSharp.dll")) return "HKCode.dll";
+            if (assemblyName.Equals("Assembly-CSharp-firstpass.dll")) return "HKCode-firstpass.dll";
+            return assemblyName;
         }
     }
 }

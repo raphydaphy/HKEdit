@@ -7,8 +7,6 @@ using HKExporter.Util;
 
 namespace HKExporter {
     public class ReferenceCrawler {
-        private const string UnityProjectDir = "D:/Documents/HKModding/HollowKnight";
-        private const string UnityManagedDir = "Assets/Managed";
         private const string SceneLevelName = "editorscene";
         private const string AssetLevelName = "editorasset";
         
@@ -31,15 +29,19 @@ namespace HKExporter {
         
         public readonly AssetsManager _am;
         private readonly AssetsFileInstance _file;
+        private readonly string _unityProjectDir;
+        private readonly string _unityManagedDir = "Assets/Managed";
         private readonly string _managedDir;
         
         // Debug
         private readonly ScriptList _scriptList;
 
-        public ReferenceCrawler(AssetsManager am, AssetsFileInstance file, string managedDir, ScriptList scriptList) {
+        public ReferenceCrawler(AssetsManager am, AssetsFileInstance file, string unityProjectDir, string unityManagedDir, string managedDir, ScriptList scriptList) {
             this._am = am;
             this._file = file;
+            this._unityProjectDir = unityProjectDir;
             this._managedDir = managedDir;
+            this._unityManagedDir = unityManagedDir;
             this._scriptList = scriptList;
         }
 
@@ -86,8 +88,6 @@ namespace HKExporter {
                 var assetBaseField = this._am.GetATI(this._file.file, info, false).GetBaseField();
                 var name = assetBaseField.Get("m_Name").GetValue().AsString();
 
-                //if (!name.Equals("left1") && !name.Equals("EnemyDetector") && !name.Equals("haze2 (3)") && !name.Equals("Hazard Respawn Marker")) continue;
-                
                 this.AddPointer(new AssetID(this._file.path, (long) info.index), false);
                 this._baseFields.Add(info, assetBaseField);
             }
@@ -144,9 +144,9 @@ namespace HKExporter {
                             var baseField = asset.instance.GetBaseField();
 
                             if (asset.info.curFileType == UnityTypes.MonoScript) {
-                                var assemblyName = RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
+                                var assemblyName = HKExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                                 if (!this.Assemblies.ContainsKey(assemblyName)) {
-                                    this.Assemblies.Add(assemblyName, new MonoScriptResolver(_curMonoResolver, UnityProjectDir, UnityManagedDir, assemblyName));
+                                    this.Assemblies.Add(assemblyName, new MonoScriptResolver(_curMonoResolver, this._unityProjectDir, this._unityManagedDir, assemblyName));
                                     _curMonoResolver++;
                                 }
                             } else if (asset.info.curFileType == UnityTypes.MonoBehaviour) {
@@ -174,7 +174,7 @@ namespace HKExporter {
 
             if (info.curFileType == UnityTypes.MonoScript) {
                 var className = baseField.Get("m_ClassName").GetValue().AsString();
-                var assemblyName = RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
+                var assemblyName = HKExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                 var dll = this.Assemblies[assemblyName];
                 var scriptPath = dll.GetPathID(className);
                 //Debug.Log("New Preload: " + "1/" + scriptPath + " " + assemblyName + "/" + className);
@@ -193,20 +193,23 @@ namespace HKExporter {
                 var scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
                 var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
                 var mAssemblyName = scriptBaseField.Get("m_AssemblyName").GetValue().AsString();
-                var ignoreData = this._scriptList.IsIgnored(mClassName, RemapAssemblyName(mAssemblyName));
+                var newAssemblyName = HKExporter.RemapAssemblyName(mAssemblyName);
+                var ignoreData = this._scriptList.IsIgnored(mClassName, newAssemblyName);
                 
                 if (!ignoreData) {
-                    if (this._scriptList.IsWhitelistMode()) Debug.Log("Adding whitelisted script " + mClassName);
+                    if (this._scriptList.IsWhitelistMode()) Debug.Log("Adding whitelisted script " + mClassName + " from " + newAssemblyName);
                     baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
                     mScript = baseField.Get("m_Script");
                     scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
                 } else if (!this._scriptList.IsWhitelistMode()) {
-                    Debug.Log("Ignoring blacklisted script " + mClassName);
+                    Debug.Log("Ignoring blacklisted script " + mClassName + " from " + newAssemblyName);
+                } else if (!this._scriptList.IsBlacklisted(mClassName, newAssemblyName)) {
+                    // Debug.Log("Ignoring script " + mClassName + " from " + newAssemblyName);
                 }
                 
                 var mNamespace = scriptBaseField.Get("m_Namespace").GetValue().AsString();
 
-                var assembly = this.Assemblies[RemapAssemblyName(mAssemblyName)];
+                var assembly = this.Assemblies[newAssemblyName];
                 mScript.Get("m_FileID").GetValue().Set(assembly.Id);
                 mScript.Get("m_PathID").GetValue().Set(assembly.GetPathID(mClassName));
 
@@ -223,7 +226,7 @@ namespace HKExporter {
                         
                         var typeConverter = new TemplateFieldToType0D();
                         var monoFields = typeConverter.TemplateToTypeField(mc.children, type0d);
-                    
+
                         type0d.pStringTable = typeConverter.stringTable;
                         type0d.stringTableLen = (uint) type0d.pStringTable.Length;
                         type0d.pTypeFieldsEx = type0d.pTypeFieldsEx.Concat(monoFields).ToArray();
@@ -305,12 +308,6 @@ namespace HKExporter {
             _pointers.Add(id, newId);
             if (isAsset) this._curAssetId++;
             else this._curSceneId++;
-        }
-
-        private static string RemapAssemblyName(string assemblyName) {
-            if (assemblyName.Equals("Assembly-CSharp.dll")) return "HKCode.dll";
-            if (assemblyName.Equals("Assembly-CSharp-firstpass.dll")) return "HKCode-firstpass.dll";
-            return assemblyName;
         }
     }
 }
