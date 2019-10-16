@@ -17,7 +17,7 @@ namespace HKExporter {
         }
 
         public bool IsIgnored(string className, string assemblyname) {
-            return this._noScriptData ? !this.IsWhitelisted(className, assemblyname) : !this.IsBlacklisted(className, assemblyname);
+            return this._noScriptData ? !this.IsWhitelisted(className, assemblyname) : this.IsBlacklisted(className, assemblyname);
         }
 
         public bool IsBlacklisted(string className, string assemblyName) {

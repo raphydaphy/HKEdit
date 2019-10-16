@@ -112,10 +112,10 @@ namespace HKExporter {
 
             var blacklist = new List<string> {
                 // Crash
-                ScriptList.GetScriptName("tk2dSpriteCollectionData", "HKCode.dll"),
-                ScriptList.GetScriptName("PlayMakerFSM", "PlayMaker.dll"),
-                ScriptList.GetScriptName("HeroController", "HKCode.dll"),
-                ScriptList.GetScriptName("HeroAudioController", "HKCode.dll")        
+                //ScriptList.GetScriptName("tk2dSpriteCollectionData", "HKCode.dll"),
+                //ScriptList.GetScriptName("PlayMakerFSM", "PlayMaker.dll"),
+                //ScriptList.GetScriptName("HeroController", "HKCode.dll"),
+                //ScriptList.GetScriptName("HeroAudioController", "HKCode.dll")        
             };
 
             var whitelist = new List<string> {
