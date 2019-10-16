@@ -24,7 +24,7 @@ namespace HKExporter {
 
         private int _curSceneId = 1;
         private int _curAssetId = 1;
-        private static uint _curMonoResolver = 2;
+        private uint _curMonoResolver = 2;
         private ushort _curMonoId;
         
         public readonly AssetsManager _am;
@@ -45,14 +45,30 @@ namespace HKExporter {
             this._scriptList = scriptList;
         }
 
+        public ReferenceCrawler(AssetsManager am,AssetsFileInstance file, AssetFileInfoEx info, AssetTypeValueField baseField, string unityProjectDir, string unityManagedDir, string managedDir, ScriptList scriptList) {
+            this._am = am;
+            this._file = file;
+            this._unityProjectDir = unityProjectDir;
+            this._managedDir = managedDir;
+            this._unityManagedDir = unityManagedDir;
+            this._scriptList = scriptList;
+            
+            this._baseFields.Add(info, baseField);
+            this.AddPointer(new AssetID(file.path, (long) info.index), false);
+        }
+
         public void Crawl() {
-            Debug.Log("Finding GameObjects...");
-            this.FindGameObjects();
+            if (this._baseFields.Count == 0) {
+                Debug.Log("Finding GameObjects...");
+                this.FindGameObjects();
+            }
+            Debug.Log("Found " + this._baseFields.Count + " GameObjects!");
             
             Debug.Log("Finding nested assets...");
             foreach (var pair in this._baseFields) {
                 this.FindNestedPointers(this._file, pair.Value, pair.Key, false);
             }
+            Debug.Log("Found " + this._pointers.Count + " pointers!");
             
             Debug.Log("Caching MonoScript pointers");
             foreach (var dll in this.Assemblies) {
@@ -91,8 +107,6 @@ namespace HKExporter {
                 this.AddPointer(new AssetID(this._file.path, (long) info.index), false);
                 this._baseFields.Add(info, assetBaseField);
             }
-            
-            Debug.Log("Found " + this._baseFields.Count + " GameObjects!");
         }
         
         private void FindNestedPointers(AssetsFileInstance file, AssetTypeValueField field, AssetFileInfoEx info, bool replace) {
@@ -144,7 +158,7 @@ namespace HKExporter {
                             var baseField = asset.instance.GetBaseField();
 
                             if (asset.info.curFileType == UnityTypes.MonoScript) {
-                                var assemblyName = HKExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
+                                var assemblyName = HkExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                                 if (!this.Assemblies.ContainsKey(assemblyName)) {
                                     this.Assemblies.Add(assemblyName, new MonoScriptResolver(_curMonoResolver, this._unityProjectDir, this._unityManagedDir, assemblyName));
                                     _curMonoResolver++;
@@ -174,7 +188,7 @@ namespace HKExporter {
 
             if (info.curFileType == UnityTypes.MonoScript) {
                 var className = baseField.Get("m_ClassName").GetValue().AsString();
-                var assemblyName = HKExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
+                var assemblyName = HkExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                 var dll = this.Assemblies[assemblyName];
                 var scriptPath = dll.GetPathID(className);
                 //Debug.Log("New Preload: " + "1/" + scriptPath + " " + assemblyName + "/" + className);
@@ -193,10 +207,11 @@ namespace HKExporter {
                 var scriptBaseField = this._am.GetExtAsset(file, mScript).instance.GetBaseField();
                 var mClassName = scriptBaseField.Get("m_ClassName").GetValue().AsString();
                 var mAssemblyName = scriptBaseField.Get("m_AssemblyName").GetValue().AsString();
-                var newAssemblyName = HKExporter.RemapAssemblyName(mAssemblyName);
+                var newAssemblyName = HkExporter.RemapAssemblyName(mAssemblyName);
                 var ignoreData = this._scriptList.IsIgnored(mClassName, newAssemblyName);
                 
                 if (!ignoreData) {
+                    Debug.Log("Adding script " + mClassName + " from " + newAssemblyName);
                     if (this._scriptList.IsWhitelistMode()) Debug.Log("Adding whitelisted script " + mClassName + " from " + newAssemblyName);
                     baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
                     mScript = baseField.Get("m_Script");

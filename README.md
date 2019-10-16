@@ -9,6 +9,7 @@ Converts hollow knight level files into usable Unity scenes
   - [ ] tk2d components error free
   - [ ] FSM components error free
   - [ ] Playable scenes
+  - [ ] Extract assets to files instead of an assetbundle
 
 ## Errors
 
@@ -16,6 +17,8 @@ Converts hollow knight level files into usable Unity scenes
   This happens three times for every MonoBehaviour if the MonoScript is not added to the preload table.
   - **Assertion failed: illegal LocalPathID in persistentmanager**<br />
   I don't know yet
+  - **NullReferenceException on TextMeshPro MonoBehaviours**
+  Not sure but this seems to happen on every TextMeshPro script when the scene is loaded.
 
 ## Warnings
   - **GameObject references runtime script in scene file. Fixing!**<br />

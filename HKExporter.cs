@@ -1,33 +1,33 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 using HKExporter.Util;
 
 namespace HKExporter {
-    internal class HKExporter {
-        private static string _unityProjectDir = "D:/Documents/HKModding/HollowKnight";
-        private const string _unityManagedDir = "Assets/Managed";
-        private static string _scenesDir = "Assets/Scenes";
-        private static string _dataDir = "Data";
+    internal static class HkExporter {
+        private const string UnityManagedDir = "Assets/Managed";
+        private const string DataDir = "Data";
+        
         private static AssetsManager _am;
+        private static string _unityProjectDir = "D:/Documents/HKModding/HollowKnight";
         private static string _gameDir;
         private static string _managedDir;
         private static string _unityVersion;
         
         private static bool _noScriptData;
         private static bool _setupUnityProject;
+        private static bool _exportAllScenes;
 
         public static void Main(string[] args) {
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             _gameDir = SteamHelper.GetHollowKnightDataPath();
 
-            ArgsHelper argsHelper = new ArgsHelper(args);
+            var argsHelper = new ArgsHelper(args);
             
             _noScriptData = argsHelper.IsPresent("noScriptData");
             _setupUnityProject = argsHelper.IsPresent("setupUnityProject");
+            _exportAllScenes = argsHelper.IsPresent("exportAllScenes");
             _unityProjectDir = argsHelper.GetValue("unityProjectDir", _unityProjectDir);
             _gameDir = argsHelper.GetValue("gameDir", _gameDir);
             
@@ -45,38 +45,62 @@ namespace HKExporter {
             _am.useTemplateFieldCache = true;
             _am.updateAfterLoad = false;
 
-            var globalGameManagers = _am.LoadAssetsFile(Path.Combine(_gameDir, "globalgamemanagers"), false);
+            var globalGameManagers = _am.LoadAssetsFile(Path.Combine(_gameDir, "globalgamemanagers"), true);
             var buildSettings = globalGameManagers.table.getAssetInfo(11);
 
-            var baseField = _am.GetATI(globalGameManagers.file, buildSettings, false).GetBaseField();
+            var baseField = _am.GetATI(globalGameManagers.file, buildSettings).GetBaseField();
 
             var scenesArray = baseField.Get("scenes").Get("Array");
 
+            _unityVersion = baseField.Get("m_Version").GetValue().AsString();
+            
+            if (_setupUnityProject) {
+                var projectBuilder = new UnityProjectBuilder(_unityProjectDir, UnityManagedDir, DataDir, _unityVersion);
+                if (projectBuilder.Setup(_am, globalGameManagers, _managedDir)) {
+                    Debug.Log("Unity project generated at '" + _unityProjectDir + "', please open it in Unity to generate metadata files before continuing...");
+                    Console.Write("Press Enter once you have opened the Unity project...");
+                    Console.ReadLine();
+                    Debug.Log("Finishing Unity project setup");
+                } else {
+                    Debug.Log("Unity project setup is enabled but the directory already exists... skipping");
+                }
+                projectBuilder.FinishSetup(_am, globalGameManagers, _managedDir);
+            }
+
+            if (!Directory.Exists(DataDir)) Directory.CreateDirectory(DataDir);
+
+            if (_exportAllScenes) {
+                for (uint i = 0; i < scenesArray.childrenCount; i++) {
+                    ExportLevel(scenesArray, i);
+                }
+                return;
+            }
+            
             Console.Write("Enter level number: ");
             if (!uint.TryParse(Console.ReadLine(), out var level)) {
                 Debug.LogError("Invalid level number");
                 return;
             }
 
-            var levelName = scenesArray[level].GetValue().AsString().Substring(14);
-            levelName = levelName.Substring(0, levelName.Length - 6);
+            ExportLevel(scenesArray, level);
+        }
 
-            _unityVersion = baseField.Get("m_Version").GetValue().AsString();
+        private static void ExportLevel(AssetTypeValueField scenesArray, uint level) {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-            if (!Directory.Exists(_scenesDir)) {
-                Directory.CreateDirectory(_scenesDir);
-            }
-
-            if (!Directory.Exists(_dataDir)) {
-                Directory.CreateDirectory(_dataDir);
-            }
+            var path = scenesArray[level].GetValue().AsString();
             
-            var sceneFilePath = Path.Combine(_scenesDir, "level" + level + ".unity");
-            var metaFilePath = Path.Combine(_scenesDir, "level" + level + ".unity.meta");
-            var assetsFilePath = Path.Combine(_dataDir, "level" + level + ".assets");
+            var levelName = Path.GetFileName(path);
+            var sceneDir = Path.GetDirectoryName(path) ?? "Assets/Scenes";
+
+            if (!Directory.Exists(sceneDir)) Directory.CreateDirectory(sceneDir);
+
+            var sceneFilePath = Path.Combine(sceneDir, levelName + ".unity");
+            var metaFilePath = Path.Combine(sceneDir, levelName + ".unity.meta");
+            var assetsFilePath = Path.Combine(DataDir, levelName + ".assets");
             
             if (File.Exists(sceneFilePath)) {
-                Console.Write("You have already exported this scene. Do you want to overwrite it (Y/n) ? ");
+                Console.Write("You have already exported this scene (#" + level + "). Do you want to overwrite it (Y/n) ? ");
                 var input = Console.ReadLine();
                 if (input != null && input.ToLower().Equals("y")) {
                     File.Delete(sceneFilePath);
@@ -87,17 +111,6 @@ namespace HKExporter {
 
             if (File.Exists(metaFilePath)) File.Delete(metaFilePath);
             if (File.Exists(assetsFilePath)) File.Delete(assetsFilePath);
-
-            if (_setupUnityProject) {
-                var projectBuilder = new UnityProjectBuilder(_unityProjectDir, _unityManagedDir, _unityVersion);
-                if (projectBuilder.Setup(_am, globalGameManagers, _managedDir)) {
-                    Debug.Log("Unity project generated at '" + _unityProjectDir + "', please open it in Unity to generate metadata files before continuing...");
-                    Console.Write("Press Enter once you have opened the Unity project...");
-                    Console.ReadLine();
-                } else {
-                    Debug.Log("Unity project setup is enabled but the directory already exists... skipping");
-                }
-            }
 
             var scenePath = Path.Combine(_gameDir, "level" + level );
             var scene = _am.LoadAssetsFile(scenePath, true);
@@ -110,24 +123,7 @@ namespace HKExporter {
                 t.table.GenerateQuickLookupTree();
             }
 
-            var blacklist = new List<string> {
-                // Crash
-                //ScriptList.GetScriptName("tk2dSpriteCollectionData", "HKCode.dll"),
-                //ScriptList.GetScriptName("PlayMakerFSM", "PlayMaker.dll"),
-                //ScriptList.GetScriptName("HeroController", "HKCode.dll"),
-                //ScriptList.GetScriptName("HeroAudioController", "HKCode.dll")        
-            };
-
-            var whitelist = new List<string> {
-                // Works
-                //ScriptList.GetScriptName("tk2dSpriteAnimator", "HKCode.dll"),
-                //ScriptList.GetScriptName("tk2dSpriteAnimation", "HKCode.dll"),
-                //ScriptList.GetScriptName("tk2dSprite", "HKCode.dll"),
-                //ScriptList.GetScriptName("PlayAudioAndRecycle", "HKCode.dll"),
-                ScriptList.GetScriptName("SpatterOrange", "HKCode.dll")
-            };
-
-            var crawler = new ReferenceCrawler(_am, scene, _unityProjectDir, _unityManagedDir, _managedDir, new ScriptList(_noScriptData, whitelist, blacklist));
+            var crawler = new ReferenceCrawler(_am, scene, _unityProjectDir, UnityManagedDir, _managedDir, new ScriptList(_noScriptData));
             crawler.Crawl();
 
             var serializer = new AssetsSerializer(crawler, levelName, sceneFilePath, metaFilePath, assetsFilePath, _unityVersion);
