@@ -211,7 +211,6 @@ namespace HKExporter {
                 var ignoreData = this._scriptList.IsIgnored(mClassName, newAssemblyName);
                 
                 if (!ignoreData) {
-                    Debug.Log("Adding script " + mClassName + " from " + newAssemblyName);
                     if (this._scriptList.IsWhitelistMode()) Debug.Log("Adding whitelisted script " + mClassName + " from " + newAssemblyName);
                     baseField = this._am.GetMonoBaseFieldCached(file, info, this._managedDir);
                     mScript = baseField.Get("m_Script");
@@ -237,7 +236,7 @@ namespace HKExporter {
                     
                     if (!ignoreData) {
                         var mc = new MonoClass();
-                        mc.Read(mClassName, Path.Combine(this._managedDir, mAssemblyName), file.file.header.format);
+                        mc.Read(mClassName, mNamespace, Path.Combine(this._managedDir, mAssemblyName), file.file.header.format);
                         
                         var typeConverter = new TemplateFieldToType0D();
                         var monoFields = typeConverter.TemplateToTypeField(mc.children, type0d);

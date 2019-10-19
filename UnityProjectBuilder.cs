@@ -56,6 +56,7 @@ namespace HKExporter {
             var resourceManager = this.GetGlobalBaseField(am, globalGameManagers, 13, out var ignored);
             var containers = resourceManager.Get("m_Container").Get("Array");
             var tmpResourcesDir = Path.Combine(this._dir, "Assets/TextMesh Pro/Resources");
+            var playmakerResourcesDir = Path.Combine(this._dir, "Assets/PlayMaker/Resources");
 
             am.UpdateDependencies();
 
@@ -82,16 +83,18 @@ namespace HKExporter {
                     var mScript = baseField.Get("m_Script");
                     if (mScript != null && mScript.childrenCount == 2 && mScript.GetFieldType().Equals("PPtr<MonoScript>")) {
                         // TODO: this dosen't add any new children even when it is supposed to...'
-                        baseField = am.GetMonoBaseFieldCached(asset.file, asset.info, this._managedDir);
+                        baseField = am.GetMonoBaseFieldCached(asset.file, asset.info, dllDir);
                         Debug.Log("Got base field for " + name + "(#" + i + ") with " + baseField.childrenCount + " children");
                     }
-                }
 
-                if (name.Equals("TMP Settings")) {
-                    Debug.Log("TMP settings has " + baseField.childrenCount + " children");
-                    this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, tmpResourcesDir);
-                } else if (name.Equals("TMP Default Style Sheet")) {
-                    this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, Path.Combine(tmpResourcesDir, "Style Sheets"));
+                    if (name.Equals("TMP Settings")) {
+                        Debug.Log("TMP settings has " + baseField.childrenCount + " children");
+                        this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, tmpResourcesDir);
+                    } else if (name.Equals("TMP Default Style Sheet")) {
+                        this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, Path.Combine(tmpResourcesDir, "Style Sheets"));
+                    } else if (name.Equals("PlayMakerGlobals")) {
+                        this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, playmakerResourcesDir);
+                    }
                 }
 
                 i++;
