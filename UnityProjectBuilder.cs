@@ -33,12 +33,6 @@ namespace HKExporter {
             AssemblyFixer.RenameAssemblies("Assembly-CSharp", "HKCode", dllDir, this._managedDir);
             
             Directory.CreateDirectory(this._settingsDir);
-
-            uint[] settingsPaths = {2, 3, 4, 7, 8, 12, 14, 17, 22};
-
-            foreach (var pathId in settingsPaths) {
-                this.CreateSettingsFile(am, globalGameManagers, pathId);
-            }
             
             File.WriteAllText(Path.Combine(this._settingsDir, "ProjectVersion.txt"), "m_EditorVersion: " + this._version);
             File.Copy("../../Lib/EditorSettings.asset", Path.Combine(this._settingsDir, "EditorSettings.asset"));
@@ -52,7 +46,7 @@ namespace HKExporter {
             return true;
         }
 
-        public void FinishSetup(AssetsManager am, AssetsFileInstance globalGameManagers, string dllDir) {
+        public void ExportScriptableObjects(AssetsManager am, AssetsFileInstance globalGameManagers, string dllDir) {
             var resourceManager = this.GetGlobalBaseField(am, globalGameManagers, 13, out var ignored);
             var containers = resourceManager.Get("m_Container").Get("Array");
             var tmpResourcesDir = Path.Combine(this._dir, "Assets/TextMesh Pro/Resources");
@@ -82,9 +76,7 @@ namespace HKExporter {
                 if (asset.info.curFileType == UnityTypes.MonoBehaviour) {
                     var mScript = baseField.Get("m_Script");
                     if (mScript != null && mScript.childrenCount == 2 && mScript.GetFieldType().Equals("PPtr<MonoScript>")) {
-                        // TODO: this dosen't add any new children even when it is supposed to...'
                         baseField = am.GetMonoBaseFieldCached(asset.file, asset.info, dllDir);
-                        Debug.Log("Got base field for " + name + "(#" + i + ") with " + baseField.childrenCount + " children");
                     }
 
                     if (name.Equals("TMP Settings")) {
@@ -101,51 +93,33 @@ namespace HKExporter {
             }
         }
 
+        public void ExportProjectSettings(AssetsManager am, AssetsFileInstance globalGameManagers, string dllDir) {
+
+            uint[] settingsPaths = {1, 2, 3, 4, 7, 8, 12, 14, 17, 22};
+
+            foreach (var pathId in settingsPaths) {
+                this.CreateSettingsFile(am, globalGameManagers, pathId, dllDir);
+            }
+        }
+
         private AssetTypeValueField GetGlobalBaseField(AssetsManager am, AssetsFileInstance globalGameManagers, uint fieldId, out AssetFileInfoEx info) {
             info = globalGameManagers.table.getAssetInfo(fieldId);
             return info != null ? am.GetATI(globalGameManagers.file, info).GetBaseField() : null;
         }
 
-        private void CreateSettingsFile(AssetsManager am, AssetsFileInstance globalGameManagers, uint id) {
+        private void CreateSettingsFile(AssetsManager am, AssetsFileInstance globalGameManagers, uint id, string dllDir) {
             var baseField = this.GetGlobalBaseField(am, globalGameManagers, id, out var info);
             if (baseField == null) {
                 Debug.Log("Skipping settings file #" + id + " as it was not found");
                 return;
             }
-            this.CreateAssetFile(am, info, baseField, this._settingsDir);
-        }
-        
-        private void CreateAssetFile(AssetsManager am, AssetFileInfoEx info, AssetTypeValueField baseField, string dir) {
+            
             var assetClass = AssetHelper.FindAssetClassByID(am.classFile, info.curFileType);
             var assetName = assetClass.name.GetString(am.classFile);
             
-            var type0d = C2T5.Cldb2TypeTree(am.classFile, assetName);
-            var types = new List<Type_0D> {type0d};
+            am.UpdateDependencies();
             
-            byte[] baseFieldData;
-            using (var ms = new MemoryStream())
-            using (var w = new AssetsFileWriter(ms))
-            {
-                w.bigEndian = false;
-                baseField.Write(w);
-                baseFieldData = ms.ToArray();
-            }
-            
-            var replacer = new AssetsReplacerFromMemory(0, 1, type0d.classId, 0xFFFF, baseFieldData);
-            AssetsReplacer[] replacers = {replacer};
-            
-            var file = new AssetsFile(new AssetsFileReader(new MemoryStream(BundleCreator.CreateBlankAssets(this._version, types))));
-            
-            byte[] data;
-            using (var ms = new MemoryStream())
-            using (var w = new AssetsFileWriter(ms))
-            {
-                w.bigEndian = false;
-                file.Write(w, 0, replacers, 0);
-                data = ms.ToArray();
-            }
-            
-            File.WriteAllBytes(Path.Combine(dir, assetName + ".asset"), data);
+            this.CreateScriptableObject(am, globalGameManagers, info, baseField, dllDir, assetName, this._settingsDir);
         }
 
         private void CreateScriptableObject(AssetsManager am, AssetsFileInstance file, AssetFileInfoEx info, AssetTypeValueField baseField, string dllDir, string name, string outputDir) {
@@ -156,7 +130,7 @@ namespace HKExporter {
             crawler.Crawl();
 
             var serializer = new AssetsSerializer(crawler, name, Path.Combine(outputDir, name + ".asset"), Path.Combine(outputDir, name + ".asset.meta"), Path.Combine(this._dataDir, name + ".assets"), this._version);
-            serializer.Serialize();
+            serializer.Serialize(false);
         }
     }
 }

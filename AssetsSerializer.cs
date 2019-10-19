@@ -26,13 +26,15 @@ namespace HKExporter {
             this._unityVersion = unityVersion;
         }
 
-        public void Serialize() {
+        public void Serialize(bool metaFile = true) {
             Debug.Log("Saving scene...");
             
             var assetTypes = this.GenAssetTypeTrees();
             var sceneGuid = UnityHelper.CreateMD5(this._levelName);
-            
-            UnityHelper.CreateMetaFile(sceneGuid, this._metaFilePath);
+
+            if (metaFile) {
+                UnityHelper.CreateMetaFile(sceneGuid, this._metaFilePath);
+            }
 
             var sceneFile = new AssetsFile(new AssetsFileReader(new MemoryStream(BundleCreator.CreateBlankAssets(this._unityVersion, this._crawler.Types))));
             var assetFile = new AssetsFile(new AssetsFileReader(new MemoryStream(BundleCreator.CreateBlankAssets(this._unityVersion, assetTypes))));

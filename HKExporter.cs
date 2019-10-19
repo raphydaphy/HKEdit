@@ -60,11 +60,12 @@ namespace HKExporter {
                     Debug.Log("Unity project generated at '" + _unityProjectDir + "', please open it in Unity to generate metadata files before continuing...");
                     Console.Write("Press Enter once you have opened the Unity project...");
                     Console.ReadLine();
+                    projectBuilder.ExportProjectSettings(_am, globalGameManagers, _managedDir);
+                    projectBuilder.ExportScriptableObjects(_am, globalGameManagers, _managedDir);
                     Debug.Log("Finishing Unity project setup");
                 } else {
                     Debug.Log("Unity project setup is enabled but the directory already exists... skipping");
                 }
-                projectBuilder.FinishSetup(_am, globalGameManagers, _managedDir);
             }
 
             if (!Directory.Exists(DataDir)) Directory.CreateDirectory(DataDir);
