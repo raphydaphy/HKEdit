@@ -72,13 +72,17 @@ namespace HKExporter {
                 var nameField = baseField.Get("m_Name").GetValue();
                 if (nameField == null) continue;
                 var name = nameField.AsString();
+
+                if (container.StartsWith("fonts")) {
+                    Debug.Log(container + "/" + name);
+                }
                 
                 if (asset.info.curFileType == UnityTypes.MonoBehaviour) {
                     var mScript = baseField.Get("m_Script");
                     if (mScript != null && mScript.childrenCount == 2 && mScript.GetFieldType().Equals("PPtr<MonoScript>")) {
                         baseField = am.GetMonoBaseFieldCached(asset.file, asset.info, dllDir);
                     }
-
+                    
                     if (name.Equals("TMP Settings")) {
                         Debug.Log("TMP settings has " + baseField.childrenCount + " children");
                         this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, tmpResourcesDir);
@@ -86,6 +90,8 @@ namespace HKExporter {
                         this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, Path.Combine(tmpResourcesDir, "Style Sheets"));
                     } else if (name.Equals("PlayMakerGlobals")) {
                         this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, playmakerResourcesDir);
+                    } else if (container.StartsWith("fonts & materials")) {
+                        this.CreateScriptableObject(am, asset.file, asset.info, baseField, dllDir, name, Path.Combine(this._dir, "Fonts & Materials/Arial SDF"));
                     }
                 }
 
@@ -95,7 +101,8 @@ namespace HKExporter {
 
         public void ExportProjectSettings(AssetsManager am, AssetsFileInstance globalGameManagers, string dllDir) {
 
-            uint[] settingsPaths = {1, 2, 3, 4, 7, 8, 12, 14, 17, 22};
+            // 1, 2, 3, 4, 7, 8, 12, 17, 22
+            uint[] settingsPaths = {1, 2, 3, 4, 7, 8, 12, 17, 22}; // 14 = networkmanager but it took ages to generate
 
             foreach (var pathId in settingsPaths) {
                 this.CreateSettingsFile(am, globalGameManagers, pathId, dllDir);
@@ -116,6 +123,9 @@ namespace HKExporter {
             
             var assetClass = AssetHelper.FindAssetClassByID(am.classFile, info.curFileType);
             var assetName = assetClass.name.GetString(am.classFile);
+
+            // For some reason Unity stores the player settings in ProjectSettings.asset
+            if (assetName.Equals("PlayerSettings")) assetName = "ProjectSettings";
             
             am.UpdateDependencies();
             

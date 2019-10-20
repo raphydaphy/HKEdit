@@ -42,4 +42,11 @@ public static class UnityTypes {
     public static bool IsAsset(AssetFileInfoEx inf) {
         return inf.curFileType == Texture2D || inf.curFileType == Shader || inf.curFileType == AudioClip || inf.curFileType == Material || inf.curFileType == AnimationClip;
     }
+
+    public static bool NeedsAssetReplacer(AssetFileInfoEx inf, bool useAssetBundles) {
+        var isAsset = IsAsset(inf);
+        if (useAssetBundles) return isAsset;
+        // TODO: support all asset types
+        return isAsset && inf.curFileType != AudioClip;
+    }
 }

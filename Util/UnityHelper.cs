@@ -45,7 +45,7 @@ namespace HKExporter.Util {
             };
         }
 
-        public static AssetsFileDependency CreateScriptDependency(long mostSignificant, long leastSignificant)
+        public static AssetsFileDependency CreateProjectDependency(long mostSignificant, long leastSignificant)
         {
             return new AssetsFileDependency()
             {

@@ -5,9 +5,11 @@ using AssetsTools.NET.Extra;
 using HKExporter.Util;
 
 namespace HKExporter {
-    internal static class HkExporter {
+     public static class HkExporter {
         private const string UnityManagedDir = "Assets/Managed";
         private const string DataDir = "Data";
+        
+        public static bool UseAssetsBundles;
         
         private static AssetsManager _am;
         private static string _unityProjectDir = "D:/Documents/HKModding/HollowKnight";
@@ -26,6 +28,7 @@ namespace HKExporter {
             var argsHelper = new ArgsHelper(args);
             
             _noScriptData = argsHelper.IsPresent("noScriptData");
+            UseAssetsBundles = argsHelper.IsPresent("useAssetBundles");
             _setupUnityProject = argsHelper.IsPresent("setupUnityProject");
             _exportAllScenes = argsHelper.IsPresent("exportAllScenes");
             _unityProjectDir = argsHelper.GetValue("unityProjectDir", _unityProjectDir);
@@ -60,12 +63,12 @@ namespace HKExporter {
                     Debug.Log("Unity project generated at '" + _unityProjectDir + "', please open it in Unity to generate metadata files before continuing...");
                     Console.Write("Press Enter once you have opened the Unity project...");
                     Console.ReadLine();
-                    projectBuilder.ExportProjectSettings(_am, globalGameManagers, _managedDir);
-                    projectBuilder.ExportScriptableObjects(_am, globalGameManagers, _managedDir);
                     Debug.Log("Finishing Unity project setup");
                 } else {
                     Debug.Log("Unity project setup is enabled but the directory already exists... skipping");
                 }
+                //projectBuilder.ExportProjectSettings(_am, globalGameManagers, _managedDir);
+                //projectBuilder.ExportScriptableObjects(_am, globalGameManagers, _managedDir);
             }
 
             if (!Directory.Exists(DataDir)) Directory.CreateDirectory(DataDir);
@@ -92,6 +95,7 @@ namespace HKExporter {
             var path = scenesArray[level].GetValue().AsString();
             
             var levelName = Path.GetFileName(path);
+            levelName = levelName?.Substring(0, levelName.Length - 6);
             var sceneDir = Path.GetDirectoryName(path) ?? "Assets/Scenes";
 
             if (!Directory.Exists(sceneDir)) Directory.CreateDirectory(sceneDir);

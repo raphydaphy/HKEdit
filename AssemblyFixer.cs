@@ -9,7 +9,7 @@ namespace HKExporter {
             var output = Path.Combine(outputDir, newName);
 
             // Read main dll
-            var assemblyCSharp = Mono.Cecil.AssemblyDefinition.ReadAssembly(input + ".dll");
+            var assemblyCSharp = AssemblyDefinition.ReadAssembly(input + ".dll");
 
             // Rename Assembly-CSharp
             assemblyCSharp.Name.Name = newName;
@@ -17,7 +17,7 @@ namespace HKExporter {
             
             if (File.Exists(input + "-firstpass.dll")) {
                 // Rename firstpass dll
-                var firstPass = Mono.Cecil.AssemblyDefinition.ReadAssembly(input + "-firstpass.dll");
+                var firstPass = AssemblyDefinition.ReadAssembly(input + "-firstpass.dll");
                 firstPass.Name.Name = newName + "-firstpass";
                 //firstPass.MainModule.Name = newName + "-firstpass";
 

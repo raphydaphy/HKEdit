@@ -11,9 +11,11 @@ namespace HKExporter {
         private const string AssetLevelName = "editorasset";
         
         public readonly Dictionary<string, MonoScriptResolver> Assemblies = new Dictionary<string, MonoScriptResolver>();
+        public readonly Dictionary<string, AudioClipResolver> AudioClips = new Dictionary<string, AudioClipResolver>();
+        public readonly List<AssetsFileDependency> ExternalDeps = new List<AssetsFileDependency>();
+        
         public readonly List<AssetsReplacer> SceneReplacers = new List<AssetsReplacer>();
         public readonly List<AssetsReplacer> AssetReplacers = new List<AssetsReplacer>();
-        public readonly List<AssetsReplacer> MonoReplacers = new List<AssetsReplacer>();
         public readonly List<Type_0D> Types = new List<Type_0D>();
         public readonly List<AssetPPtr> MonoScripts = new List<AssetPPtr>();
         
@@ -24,13 +26,14 @@ namespace HKExporter {
 
         private int _curSceneId = 1;
         private int _curAssetId = 1;
-        private uint _curMonoResolver = 2;
+        private uint _curDepId = 2;
         private ushort _curMonoId;
         
         public readonly AssetsManager _am;
         private readonly AssetsFileInstance _file;
         private readonly string _unityProjectDir;
         private readonly string _unityManagedDir = "Assets/Managed";
+        private readonly string _unityAudioClipDir = "Assets/AudioClip";
         private readonly string _managedDir;
         
         // Debug
@@ -139,29 +142,51 @@ namespace HKExporter {
                         if (replace) {
                             if (exists) {
                                 var newId = this._pointers[id];
+                                int newFileId;
+                                
+                                // TODO: haha this is a stupid system
+                                if (newId.fileName.StartsWith("dep-")) {
+                                    newFileId = int.Parse(newId.fileName.Substring(4));
+                                } else {
+                                    var isSelfAsset = UnityTypes.IsAsset(info);
+                                    var isDepAsset = newId.fileName.Equals(AssetLevelName);
 
-                                var isSelfAsset = UnityTypes.IsAsset(info);
-                                var isDepAsset = newId.fileName.Equals(AssetLevelName);
+                                    newFileId = isDepAsset ^ isSelfAsset ? 1 : 0;
 
-                                var newFileId = isDepAsset ^ isSelfAsset ? 1 : 0;
-
+                                }
                                 child.Get("m_FileID").GetValue().Set(newFileId);
                                 child.Get("m_PathID").GetValue().Set(newId.pathId);
                             } else {
+                                Debug.Log(type + " dosent exist");
                                 child.Get("m_FileID").GetValue().Set(0);
                                 child.Get("m_PathID").GetValue().Set(0);
                             }
                         } else {
                             if (exists) continue;
-
-                            this.AddPointer(id, UnityTypes.IsAsset(asset.info));
                             var baseField = asset.instance.GetBaseField();
+                            
+                            // TODO: generalized system
+                            if (asset.info.curFileType == UnityTypes.AudioClip && !HkExporter.UseAssetsBundles) {
+                                var name = baseField.Get("m_Name").GetValue().AsString();
+                                if (!this.AudioClips.ContainsKey(name)) {
+                                    var res = new AudioClipResolver(this._unityProjectDir, this._curDepId, name);
+                                    this.AudioClips.Add(name, res);
+                                    this.ExternalDeps.Add(UnityHelper.CreateProjectDependency(res.GuidMostSignificant, res.GuidLeastSignificant));
+                                    this._curDepId++;
+                                }
+                                var resolver = this.AudioClips[name];
+                                this.AddCustomPointer(id, new AssetID("dep-" + resolver.FileId, resolver.PathId));
+                            } else {
+                                this.AddPointer(id, UnityTypes.IsAsset(asset.info));
+                            }
 
                             if (asset.info.curFileType == UnityTypes.MonoScript) {
                                 var assemblyName = HkExporter.RemapAssemblyName(baseField.Get("m_AssemblyName").GetValue().AsString());
                                 if (!this.Assemblies.ContainsKey(assemblyName)) {
-                                    this.Assemblies.Add(assemblyName, new MonoScriptResolver(_curMonoResolver, this._unityProjectDir, this._unityManagedDir, assemblyName));
-                                    _curMonoResolver++;
+                                    var res = new MonoScriptResolver(this._curDepId, this._unityProjectDir, this._unityManagedDir, assemblyName);
+                                    this.Assemblies.Add(assemblyName, res);
+                                    this.ExternalDeps.Add(UnityHelper.CreateProjectDependency(res.GuidMostSignificant, res.GuidLeastSignificant));
+                                    this._curDepId++;
                                 }
                             } else if (asset.info.curFileType == UnityTypes.MonoBehaviour) {
                                 var mScript = baseField.Get("m_Script");
@@ -270,9 +295,10 @@ namespace HKExporter {
             }
             AssetsReplacer replacer = new AssetsReplacerFromMemory(0, (ulong)aid.pathId, (int)info.curFileType, monoId, baseFieldData);
 
-            if (UnityTypes.IsAsset(info)) this.AssetReplacers.Add(replacer);
-            else if (info.curFileType == UnityTypes.MonoScript) this.MonoReplacers.Add(replacer);
-            else this.SceneReplacers.Add(replacer);
+            if (UnityTypes.IsAsset(info)) {
+                if (UnityTypes.NeedsAssetReplacer(info, HkExporter.UseAssetsBundles)) this.AssetReplacers.Add(replacer);
+            }
+            else if (info.curFileType != UnityTypes.MonoScript) this.SceneReplacers.Add(replacer);
         }
 
         private void FinalizeAsset(AssetsFileInstance file, AssetTypeValueField field, AssetFileInfoEx info) {
@@ -290,7 +316,8 @@ namespace HKExporter {
                     break;
                 }
                 case UnityTypes.Texture2D: {
-                    var path = field.Get("m_StreamData").Get("path");
+                    var mStreamData = field.Get("m_StreamData");
+                    var path = mStreamData.Get("path");
                     var pathString = path.GetValue().AsString();
                     var directory = Path.GetDirectoryName(file.path);
                     if (directory == null) {
@@ -302,7 +329,8 @@ namespace HKExporter {
                     break;
                 }
                 case UnityTypes.AudioClip: {
-                    var path = field.Get("m_Resource").Get("m_Source");
+                    var mResource = field.Get("m_Resource");
+                    var path = mResource.Get("m_Source");
                     var pathString = path.GetValue().AsString();
                     var directory = Path.GetDirectoryName(file.path);
                     if (directory == null) {
@@ -319,9 +347,13 @@ namespace HKExporter {
         private void AddPointer(AssetID id, bool isAsset) {
             var name = isAsset ? AssetLevelName : SceneLevelName;
             var newId = new AssetID(name, isAsset ? this._curAssetId : this._curSceneId);
-            _pointers.Add(id, newId);
+            this._pointers.Add(id, newId);
             if (isAsset) this._curAssetId++;
             else this._curSceneId++;
+        }
+
+        private void AddCustomPointer(AssetID from, AssetID to) {
+            this._pointers.Add(from, to);
         }
     }
 }
